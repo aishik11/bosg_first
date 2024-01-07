@@ -1,12 +1,11 @@
 import dgl.function as fn
+import numpy as np
 import torch
 import torch.nn as nn
 from dgl.data import GINDataset
 from dgl.dataloading import GraphDataLoader
 from dgl.nn import AvgPooling, GNNExplainer
 import copy
-
-from twisted.python.util import println
 
 from models import pre_embedding, edgepooling_training
 from imports import device
@@ -18,6 +17,9 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib
 from dgl.data.utils import split_dataset
+import argparse
+from sklearn.model_selection import KFold
+
 print(device)
 matplotlib.use("TkAgg")
 
@@ -101,35 +103,73 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
 
 
 if __name__ == '__main__':
-    data = GINDataset('MUTAG', self_loop=True)
-    data = utils.prep_data(data, 'attr')
-    train_set, val_set = split_dataset(data,[0.8,0.2], True, 1)
 
-    labels = set()
+    parser = argparse.ArgumentParser()
 
-    for g,l in data:
-        labels.add(l.item())
-    labels = list(labels)
-    labels.sort()
-    print(labels)
+    parser.add_argument("-dataset", '--dataset',type=str, default='MUTAG')
+    parser.add_argument("-dataset_feat", '--dataset_feat', type=str, default='attr')
+    parser.add_argument("-dataset_multiplier", '--dataset_multiplier', type=int, default=3)
+    parser.add_argument("-dw_dim", '--dw_dim', type=int, default=32)
+    parser.add_argument("-dw_walk_length", '--dw_walk_length', type=int, default=10)
+    parser.add_argument("-dw_window_size", '--dw_window_size', type=int, default=4)
 
-    train_data = utils.get_supervised_dataloader(train_set,3, 'attr', labels)
-    val_data = utils.get_supervised_dataloader(val_set,3, 'attr', labels)
+    parser.add_argument("-model_name", '--model_name', type=str, default='model_1')
+    parser.add_argument("-pool", '--pool', action='store_false')
 
-    train_dataloader = GraphDataLoader(train_data, batch_size=64, shuffle=True)
-    val_dataloader = GraphDataLoader(val_data, batch_size=64, shuffle=True)
+    parser.add_argument("-epoch", '--epoch', type=int, default=800)
+    parser.add_argument("-hin", '--hin', type=int, default=39)  #unused
+    parser.add_argument("-hout", '--hout', type=int, default=128)
+    parser.add_argument("-kfold", "--kfold", action='store_false')
+
+    args = parser.parse_args()
+
+    feat_key = args.dataset_feat
+    if args.dataset == 'MUTAG':
+        data = GINDataset('MUTAG', self_loop=True)
+
+    data = utils.prep_data(data, feat_key, args.dw_dim, args.dw_walk_length, args.dw_window_size) ##Deepwalk
+    data = np.array(data)
+    print("Data prepared")
+
+    if args.kfold:
+        folds_id = list(range(10))
+        kf = KFold(n_splits=10, random_state=1, shuffle=True)
+
+    else:
+        folds_id = [0]
+        kf = KFold(n_splits=1)
 
 
-    foldc = 0
-    model = pre_embedding(39,128, 2).float().to(device)
-    opt = torch.optim.Adam(model.parameters(), lr = 0.001, weight_decay=0.001)
-    model = train(model, opt, 0, train_dataloader, val_dataloader, 'model_1', 800)
 
-    pooler = edgepooling_training(model, len(labels))
+    for train_ids, val_ids in kf.split(data):
 
-    for g,l in tqdm(train_data):
-        feats = g.ndata['feat_onehot'].to(device)
-        outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
+        train_set = data[train_ids]
+        val_set = data[val_ids]
+
+        labels = set()
+
+        for g,l in data:
+            labels.add(l.item())
+        labels = list(labels)
+        labels.sort()
+        print(labels)
+
+        train_data = utils.get_supervised_dataloader(train_set,args.dataset_multiplier, feat_key, labels)
+        val_data = utils.get_supervised_dataloader(val_set,args.dataset_multiplier, feat_key, labels)
+
+        train_dataloader = GraphDataLoader(train_data, batch_size=64, shuffle=True)
+        val_dataloader = GraphDataLoader(val_data, batch_size=64, shuffle=True)
+
+        model = pre_embedding(39,args.hout, len(labels)).float().to(device) #todo
+        opt = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
+        model = train(model, opt, 0, train_dataloader, val_dataloader, args.model_name, args.epoch)
+
+        pooler = edgepooling_training(model, len(labels))
+
+        if args.pool:
+            for g,l in tqdm(train_data):
+                feats = g.ndata['feat_onehot'].to(device)
+                outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
 
 
 

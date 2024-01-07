@@ -9,7 +9,7 @@ from torch.optim import SparseAdam
 from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
 
-def prep_data(dataset, feat_key):
+def prep_data(dataset, feat_key, emb_dim=32, walk_length=10, window_size=4):
     gs = []
 
     for g, l in dataset:
@@ -17,7 +17,7 @@ def prep_data(dataset, feat_key):
 
     tbatch = dgl.batch(gs)
 
-    model = DeepWalk(tbatch, emb_dim=32, walk_length=10, window_size=4).to(device)
+    model = DeepWalk(tbatch, emb_dim=emb_dim, walk_length=walk_length, window_size=window_size).to(device)
     dataloader = DataLoader(torch.arange(tbatch.num_nodes()), batch_size=128,
                             shuffle=True, collate_fn=model.sample)
     optimizer = SparseAdam(model.parameters(), lr=0.01)
