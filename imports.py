@@ -20,7 +20,6 @@ if torch.cuda.is_available():
 else:
   device = 'cpu'
 
-device = 'cpu'
 import os
 os.environ['DGLBACKEND'] = 'pytorch'
 import torch
