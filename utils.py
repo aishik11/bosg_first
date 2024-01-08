@@ -8,6 +8,7 @@ from dgl.nn import DeepWalk
 from torch.optim import SparseAdam
 from torch.utils.data import DataLoader
 from sklearn.linear_model import LogisticRegression
+from dgl import RemoveSelfLoop
 
 def prep_data(dataset, feat_key, emb_dim=32, walk_length=10, window_size=4):
     gs = []
