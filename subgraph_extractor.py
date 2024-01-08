@@ -101,22 +101,22 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
         print('---------------fold-' + str(foldc) + '-------- ecpoch ' + str(epoch) + " ------------------")
     return model
 
-def pool(model, data):
-    pooler = edgepooling_training(model, len(labels))
-    for g,l in tqdm(train_data):
+def pool(model, data, n):
+    pooler = edgepooling_training(model, n)
+    for g,l in tqdm(data):
         feats = g.ndata['feat_onehot'].to(device)
         outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
 
 
 
-def pool_only(path,data):
-    model = pre_embedding(39,hout, len(labels)).float().to(device) #todo
+def pool_only(path,data, hin, hout, n):
+    model = pre_embedding(hin,hout, n).float().to(device) #todo
     checkpoint = torch.load(path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
-    pooler = edgepooling_training(model, len(labels))
+    pooler = edgepooling_training(model, n)
 
-    for g,l in tqdm(train_data):
+    for g,l in tqdm(data):
         feats = g.ndata['feat_onehot'].to(device)
         outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
 
@@ -163,7 +163,7 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
         model = train(model, opt, 0, train_dataloader, val_dataloader, model_name, epoch)
 
         if pool:
-            pool(model, train_data)
+            pool(model, train_data, len(labels))
 
 if __name__ == '__main__':
 
