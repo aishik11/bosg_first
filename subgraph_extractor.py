@@ -101,6 +101,25 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
         print('---------------fold-' + str(foldc) + '-------- ecpoch ' + str(epoch) + " ------------------")
     return model
 
+def pool(model, data):
+    pooler = edgepooling_training(model, len(labels))
+    for g,l in tqdm(train_data):
+        feats = g.ndata['feat_onehot'].to(device)
+        outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
+
+
+
+def pool_only(path,data):
+    model = pre_embedding(39,hout, len(labels)).float().to(device) #todo
+    checkpoint = torch.load(path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    pooler = edgepooling_training(model, len(labels))
+
+    for g,l in tqdm(train_data):
+        feats = g.ndata['feat_onehot'].to(device)
+        outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
+
 def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32, dw_walk_length= 10, dw_window_size=4, model_name='model_1', pool=True, epoch=800, hout=128, kfold=False):
     feat_key = dataset_feat
     if dataset == 'MUTAG':
@@ -143,12 +162,8 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
         opt = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
         model = train(model, opt, 0, train_dataloader, val_dataloader, model_name, epoch)
 
-        pooler = edgepooling_training(model, len(labels))
-
         if pool:
-            for g,l in tqdm(train_data):
-                feats = g.ndata['feat_onehot'].to(device)
-                outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
+            pool(model, train_data)
 
 if __name__ == '__main__':
 
