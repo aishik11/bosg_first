@@ -33,6 +33,7 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
     best_acc = 0
     foldc = 0
     cluster_max_nodes = torch.tensor(8)
+    lowest_test_loss = 999999999999
     for epoch in range(curr_epoch, epochs):
         running_loss_train = []
         running_loss_layer = []
@@ -65,12 +66,12 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
 
                 score = model(batchs, batchs.ndata['feat_onehot'])
                 var = torch.ones(batchs.batch_size, 2, requires_grad=True)
-                loss = loss_func(F.log_softmax(score, dim=-1), label.squeeze(-1).type(torch.LongTensor).to(device))
+                val_loss = loss_func(F.log_softmax(score, dim=-1), label.squeeze(-1).type(torch.LongTensor).to(device))
                 # loss = loss_func(F.softmax(score, dim=-1), F.one_hot(label.squeeze().long()).to(device), var)
 
                 correct += torch.sum(torch.eq(F.softmax(score, dim=-1).max(dim=-1)[1], label.squeeze().to(device)),
                                      -1).item()
-                running_loss_test.append(loss.item())
+                running_loss_test.append(val_loss.item())
         val_acc = correct / len(val_loader.dataset)
         print('\ntrain accuracy = ' + str(train_acc) + '  val accuracy ' + str(val_acc))
 
@@ -82,11 +83,14 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
         train_epoch_loss.append(epoch_loss_train)
         # train_epoch_loss_layer.append(epoch_loss_layer)
         test_epoch_loss.append(epoch_loss_test)
-        torch.save({
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': opt.state_dict(),
-            'curr_epoch': epoch
-        }, name + str(foldc) + ".pt")
+
+        if val_loss.item() < lowest_test_loss:
+            lowest_test_loss = val_loss.item()
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': opt.state_dict(),
+                'curr_epoch': epoch
+            }, name + str(foldc) + ".pt")
 
         if epoch % 1 == 0:
             x = np.arange(0, len(train_epoch_loss))
