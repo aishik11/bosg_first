@@ -71,7 +71,7 @@ class pre_embedding(nn.Module):
 
 class edgepooling_training(nn.Module):
 
-    def __init__(self, model, n_class):
+    def __init__(self, model, eps_in, n_class):
         super(edgepooling_training, self).__init__()
 
         # self.transform = RemoveSelfLoop()
@@ -81,6 +81,7 @@ class edgepooling_training(nn.Module):
         self.dropout = nn.Dropout(0.2)
         self.n_class = n_class
         self.model = model
+        self.eps_in = eps_in
 
     def get_score(self, bgraph, node_index_sum, score_map):
         key = str(node_index_sum.tolist())
@@ -187,11 +188,11 @@ class edgepooling_training(nn.Module):
             ecomb = torch.stack(ecomb)
             ecomb_sig = ecomb  # torch.sigmoid(ecomb)
 
-            e = 0.001 / node_count
-            multiplier = 1 - e
-            hstc = esrc * torch.log(1 / (esrc)) * multiplier  # + (0.1/(pool_it+1))
-            hdest = edest * torch.log(1 / (edest)) * multiplier  # + (0.1/(pool_it+1))
-            hcomb = ecomb_sig * torch.log(1 / ecomb_sig) * e  # - (1/(pool_it+1))
+            eps = self.eps_in/(pool_it + 1)#len(node_count)#0.001 / node_count
+            multiplier = (self.eps_in)/(pool_it + 1)#len(node_count)
+            hstc = esrc * torch.log(1 / (esrc)) + multiplier  # + (0.1/(pool_it+1))
+            hdest = edest * torch.log(1 / (edest)) + multiplier  # + (0.1/(pool_it+1))
+            hcomb = ecomb_sig * torch.log(1 / ecomb_sig) - eps  # - (1/(pool_it+1))
 
 
             scores = ((hstc - hcomb) * (hdest - hcomb) * (1 + torch.floor((hstc - hcomb))) * (

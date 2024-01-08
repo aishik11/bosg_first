@@ -101,20 +101,20 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
         print('---------------fold-' + str(foldc) + '-------- ecpoch ' + str(epoch) + " ------------------")
     return model
 
-def pool(model, data, n):
-    pooler = edgepooling_training(model, n)
+def pool(model, data, eps_in, n):
+    pooler = edgepooling_training(model, eps_in, n)
     for g,l in tqdm(data):
         feats = g.ndata['feat_onehot'].to(device)
         outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
 
 
 
-def pool_only(path,data, hin, hout, n):
+def pool_only(path,data, hin, hout, eps_in, n):
     model = pre_embedding(hin,hout, n).float().to(device) #todo
     checkpoint = torch.load(path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
-    pooler = edgepooling_training(model, n)
+    pooler = edgepooling_training(model, eps_in, n)
 
     for g,l in tqdm(data):
         feats = g.ndata['feat_onehot'].to(device)
@@ -163,7 +163,7 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
         model = train(model, opt, 0, train_dataloader, val_dataloader, model_name, epoch)
 
         if pool:
-            pool(model, train_data, len(labels))
+            pool(model, train_data, 0.2, len(labels))
 
 if __name__ == '__main__':
 
