@@ -11,8 +11,9 @@ from sklearn.linear_model import LogisticRegression
 
 def prep_data(dataset, feat_key, emb_dim=32, walk_length=10, window_size=4):
     gs = []
-
+    transform = RemoveSelfLoop()
     for g, l in dataset:
+        g  = transform(g)
         gs.append(g.to(device))
 
     tbatch = dgl.batch(gs)
