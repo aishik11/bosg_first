@@ -167,7 +167,9 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
         train_dataloader = GraphDataLoader(train_data, batch_size=64, shuffle=True)
         val_dataloader = GraphDataLoader(val_data, batch_size=64, shuffle=True)
 
-        model = pre_embedding(39,hout, len(labels)).float().to(device) #todo
+
+        indim = val_data[0][0].ndata['feat_onehot'].size()[0]
+        model = pre_embedding(indim,hout, len(labels)).float().to(device) #todo
         opt = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
         model = train(model, opt, 0, train_dataloader, val_dataloader, model_name, epoch)
 
