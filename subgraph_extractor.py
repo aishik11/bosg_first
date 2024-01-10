@@ -19,6 +19,7 @@ import matplotlib
 from dgl.data.utils import split_dataset
 import argparse
 from sklearn.model_selection import KFold
+from dgl.data import BAShapeDataset
 
 print(device)
 #matplotlib.use("TkAgg")
