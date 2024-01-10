@@ -130,7 +130,10 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
 
     ##not used
     if dataset == 'MUTAG':
-        data = GINDataset('MUTAG', self_loop=True)
+        data = GINDataset('MUTAG', self_loop=False)
+    elif dataset == 'BASHAPE':
+        data = BAShapeDataset()
+        dataset_feat = 'feat'
     else:
         data = GINDataset(dataset, self_loop=True)
 
