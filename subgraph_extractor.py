@@ -102,6 +102,7 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
     return model
 
 def pool(model, data, n):
+    model.eval()
     pooler = edgepooling_training(model, n)
     for g,l in tqdm(data):
         feats = g.ndata['feat_onehot'].to(device)
@@ -113,7 +114,7 @@ def pool_only(path,data, hin, hout, n):
     model = pre_embedding(hin,hout, n).float().to(device) #todo
     checkpoint = torch.load(path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
-
+    model.eval()
     pooler = edgepooling_training(model, n)
 
     for g,l in tqdm(data):
@@ -124,6 +125,8 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
     feat_key = dataset_feat
     if dataset == 'MUTAG':
         data = GINDataset('MUTAG', self_loop=True)
+    else:
+        data = GINDataset(dataset, self_loop=True)
 
     data = utils.prep_data(data, feat_key, dw_dim, dw_walk_length, dw_window_size) ##Deepwalk
     data = np.array(data)
