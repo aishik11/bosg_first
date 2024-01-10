@@ -127,6 +127,8 @@ def pool_only(path,data, hin, hout, n):
 
 def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32, dw_walk_length= 10, dw_window_size=4, model_name='model_1', pool=True, epoch=800, hout=128, kfold=False):
     feat_key = dataset_feat
+
+    ##not used
     if dataset == 'MUTAG':
         data = GINDataset('MUTAG', self_loop=True)
     else:
