@@ -19,7 +19,7 @@ import matplotlib
 from dgl.data.utils import split_dataset
 import argparse
 from sklearn.model_selection import KFold
-from dgl.data import BAShapeDataset
+from dgl.data import BA2MotifDataset
 
 print(device)
 #matplotlib.use("TkAgg")
@@ -133,10 +133,14 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
     if dataset == 'MUTAG':
         data = GINDataset('MUTAG', self_loop=False)
     elif dataset == 'BASHAPE':
-        data = BAShapeDataset()
-        dataset_feat = 'feat'
+        dataset = BA2MotifDataset()
+        data = []
+        for g, l in dataset:
+          data.append((g, torch.argmax(l).item()))
+        feat_key = 'feat'
     else:
         data = GINDataset(dataset, self_loop=True)
+
 
     data = utils.prep_data(data, feat_key, dw_dim, dw_walk_length, dw_window_size) ##Deepwalk
     data = np.array(data)
@@ -151,19 +155,20 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
       folds = list(kf.split(data))[:1]
 
 
+    labels = set()
+
+    for g,l in data:
+        labels.add(l.item())
+    labels = list(labels)
+    labels.sort()
+    print(labels)
 
     for train_ids, val_ids in folds:
 
         train_set = data[train_ids]
         val_set = data[val_ids]
 
-        labels = set()
 
-        for g,l in data:
-            labels.add(l.item())
-        labels = list(labels)
-        labels.sort()
-        print(labels)
 
         train_data = utils.get_supervised_dataloader(train_set,dataset_multiplier, feat_key, labels)
         val_data = utils.get_supervised_dataloader(val_set,dataset_multiplier, feat_key, labels)
