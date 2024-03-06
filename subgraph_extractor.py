@@ -2,10 +2,11 @@ import dgl.function as fn
 import numpy as np
 import torch
 import torch.nn as nn
-from dgl.data import GINDataset
+from dgl.data import GINDataset,TUDataset
 from dgl.dataloading import GraphDataLoader
 from dgl.nn import AvgPooling, GNNExplainer
 import copy
+import torch.nn.functional as F
 
 from models import pre_embedding, edgepooling_training
 from imports import device
@@ -130,20 +131,29 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
     feat_key = dataset_feat
 
     ##not used
+    data = []
     if dataset == 'MUTAG':
-        data = GINDataset('MUTAG', self_loop=False)
+        tdata = TUDataset('MUTAG')
+        
+        for g,l in tdata:
+          ng = dgl.graph(((g.edges()[0]).int().tolist(), ( g.edges()[1]).int().tolist()))
+          ng.ndata['attr'] = F.one_hot(g.ndata['node_labels'].squeeze(),num_classes=7)
+          data.append((ng,l))
+          #print(ng)
     elif dataset == 'BASHAPE':
         dataset = BA2MotifDataset()
         data = []
         for g, l in dataset:
-          data.append((g, torch.argmax(l).item()))
+          data.append((g, torch.argmax(l)))
         feat_key = 'feat'
     else:
         data = GINDataset(dataset, self_loop=True)
 
 
-    data = utils.prep_data(data, feat_key, dw_dim, dw_walk_length, dw_window_size) ##Deepwalk
-    data = np.array(data)
+    print(len(data))
+    data = utils.prep_data(data, feat_key, dw_dim, dw_walk_length, dw_window_size)
+    print(data[0]) ##Deepwalk
+    data = np.asarray(data, dtype="object")
     print("Data prepared")
 
     kf = KFold(n_splits=10, random_state=1, shuffle=True)
@@ -177,7 +187,7 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
         val_dataloader = GraphDataLoader(val_data, batch_size=64, shuffle=True)
 
 
-        indim = val_data[0][0].ndata['feat_onehot'].size()[0]
+        indim = val_data[0][0].ndata['feat_onehot'].size()[1]
         model = pre_embedding(indim,hout, len(labels)).float().to(device) #todo
         opt = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
         model = train(model, opt, 0, train_dataloader, val_dataloader, model_name, epoch)
