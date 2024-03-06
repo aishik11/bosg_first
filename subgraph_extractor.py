@@ -147,7 +147,7 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
           data.append((g, torch.argmax(l)))
         feat_key = 'feat'
     else:
-        data = GINDataset(dataset, self_loop=True)
+        data = dataset#GINDataset(dataset, self_loop=True)
 
 
     print(len(data))
