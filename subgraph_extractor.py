@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 from dgl.data import GINDataset,TUDataset
 from dgl.dataloading import GraphDataLoader
-from dgl.nn import AvgPooling, GNNExplainer
 import copy
 import torch.nn.functional as F
 
@@ -25,7 +24,7 @@ from dgl.data import BA2MotifDataset
 print(device)
 #matplotlib.use("TkAgg")
 
-def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
+def train(model, opt, curr_epoch, train_dataloader, val_loader, path, k, gnntype, epochs):
     loss_func = F.nll_loss
     train_epoch_loss = []
     train_epoch_loss_layer = []
@@ -92,7 +91,7 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, name, epochs):
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': opt.state_dict(),
                 'curr_epoch': epoch
-            }, name + str(foldc) + ".pt")
+            }, os.path.join(path, gnntype +"_"+ str(k) + ".pt"))
 
         if epoch % 1 == 0:
             x = np.arange(0, len(train_epoch_loss))
@@ -127,7 +126,7 @@ def pool_only(path,data, hin, hout, n):
         feats = g.ndata['feat_onehot'].to(device)
         outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
 
-def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32, dw_walk_length= 10, dw_window_size=4, model_name='model_1', pool=True, epoch=800, hout=128, kfold=False):
+def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32, dw_walk_length= 10, dw_window_size=4, model_dir='', pool=True, epoch=800, hout=128, kfold=False):
     feat_key = dataset_feat
 
     ##not used
@@ -188,12 +187,14 @@ def start(dataset='MUTAG', dataset_feat='attr', dataset_multiplier=3, dw_dim=32,
 
 
         indim = val_data[0][0].ndata['feat_onehot'].size()[1]
-        model = pre_embedding(indim,hout, len(labels)).float().to(device) #todo
-        opt = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
-        model = train(model, opt, 0, train_dataloader, val_dataloader, model_name, epoch)
 
-        if pool:
-            pool(model, train_data, len(labels))
+        for gnntype in ['graph_conv', 'gin_conv', 'gat_conv', 'tag_conv']:
+            model = pre_embedding(indim,hout, len(labels)).float().to(device) #todo
+            opt = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
+            model = train(model, opt, 0, train_dataloader, val_dataloader, model_dir, k, gnntype, epoch)
+
+            if pool:
+                pool(model, train_data, len(labels))
 
 if __name__ == '__main__':
 
@@ -206,7 +207,7 @@ if __name__ == '__main__':
     parser.add_argument("-dw_walk_length", '--dw_walk_length', type=int, default=10)
     parser.add_argument("-dw_window_size", '--dw_window_size', type=int, default=4)
 
-    parser.add_argument("-model_name", '--model_name', type=str, default='model_1')
+    parser.add_argument("-model_dir", '--model_dir', type=str, default='./')
     parser.add_argument("-pool", '--pool', action='store_false')
 
     parser.add_argument("-epoch", '--epoch', type=int, default=800)
@@ -216,7 +217,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    start(args.dataset, args.dataset_feat, args.dataset_multiplier, args.dw_dim, args.dw_walk_length, args.dw_window_size, args.model_name, args.pool, args.epoch, args.hout, args.kfold)
+    start(args.dataset, args.dataset_feat, args.dataset_multiplier, args.dw_dim, args.dw_walk_length, args.dw_window_size, args.model_dir, args.pool, args.epoch, args.hout, args.kfold)
 
 
 

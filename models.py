@@ -20,11 +20,14 @@ import torch.nn as nn
 from imports import device
 import dgl.function as fn
 import numpy as np
-
+import torch as th
+from dgl.nn.pytorch import GINConv
+from dgl.nn.pytorch import GATConv
+from dgl.nn.pytorch import TAGConv
 
 class pre_embedding(nn.Module):
 
-    def __init__(self, in_dim, out_dim, n_class):
+    def __init__(self, in_dim, out_dim, n_class, gnn_type):
         super(pre_embedding, self).__init__()
 
         self.pred_lin = nn.Sequential(nn.Linear(out_dim, int(out_dim / 2)), nn.ReLU(),
@@ -32,15 +35,49 @@ class pre_embedding(nn.Module):
 
         self.transform1 = RemoveSelfLoop()
         self.transform2 = ToSimple()
-        self.initial_emb1 = dglnn.GraphConv(in_dim, out_dim, allow_zero_in_degree=True)
-        self.initial_emb2 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
-        self.initial_emb3 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
 
-        self.initial_emb21 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
-        self.initial_emb22 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
-        self.initial_emb23 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
+        if gnn_type == 'graph_conv':
+            self.initial_emb1 = dglnn.GraphConv(in_dim, out_dim, allow_zero_in_degree=True)
+            self.initial_emb2 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
+            self.initial_emb3 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
 
-        self.start_emb = dglnn.GraphConv(in_dim, out_dim, allow_zero_in_degree=True)
+            self.initial_emb21 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
+            self.initial_emb22 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
+            self.initial_emb23 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
+
+            self.start_emb = dglnn.GraphConv(in_dim, out_dim, allow_zero_in_degree=True)
+        elif gnn_type == 'gin_conv':
+            self.initial_emb1 = GINConv(th.nn.Linear(in_dim, out_dim), 'max')
+            self.initial_emb2 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb3 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+
+            self.initial_emb21 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb22 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb23 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+
+            self.initial_emb1 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+
+        elif gnn_type == 'gat_conv':
+            self.initial_emb1 = GATConv(in_dim, out_dim, num_heads=3)
+            self.initial_emb2 = GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb3 = GATConv(out_dim, out_dim, num_heads=3)
+
+            self.initial_emb21 = GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb22 = GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb23 = GATConv(out_dim, out_dim, num_heads=3)
+
+            self.initial_emb1 = GATConv(out_dim, out_dim, num_heads=3)
+        else:
+            self.initial_emb1 = TAGConv(in_dim, out_dim, k=2)
+            self.initial_emb2 = TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb3 = TAGConv(out_dim, out_dim, k=2)
+
+            self.initial_emb21 = TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb22 = TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb23 = TAGConv(out_dim, out_dim, k=2)
+
+            self.initial_emb1 = TAGConv(out_dim, out_dim, k=2)
+
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, graph, hx, eweight=None):
