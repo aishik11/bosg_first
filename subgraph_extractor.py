@@ -25,6 +25,8 @@ print(device)
 #matplotlib.use("TkAgg")
 
 def train(model, opt, curr_epoch, train_dataloader, val_loader, path, k, gnntype, dataset_name, epochs, halt_pat):
+
+    print([gnntype, dataset_name])
     loss_func = F.nll_loss
     train_epoch_loss = []
     train_epoch_loss_layer = []
