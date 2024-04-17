@@ -24,7 +24,7 @@ from dgl.data import BA2MotifDataset
 print(device)
 #matplotlib.use("TkAgg")
 
-def train(model, opt, curr_epoch, train_dataloader, val_loader, path, k, gnntype, dataset_name, epochs):
+def train(model, opt, curr_epoch, train_dataloader, val_loader, path, k, gnntype, dataset_name, epochs, halt_pat):
     loss_func = F.nll_loss
     train_epoch_loss = []
     train_epoch_loss_layer = []
@@ -35,6 +35,8 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, path, k, gnntype
     foldc = 0
     cluster_max_nodes = torch.tensor(8)
     lowest_test_loss = 999999999999
+
+    halt_counter = 0
     for epoch in range(curr_epoch, epochs):
         running_loss_train = []
         running_loss_layer = []
@@ -84,8 +86,9 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, path, k, gnntype
         train_epoch_loss.append(epoch_loss_train)
         # train_epoch_loss_layer.append(epoch_loss_layer)
         test_epoch_loss.append(epoch_loss_test)
-
+        halt_counter +=1
         if val_loss.item() < lowest_test_loss:
+            halt_counter = 0
             lowest_test_loss = val_loss.item()
             torch.save({
                 'model_state_dict': model.state_dict(),
@@ -104,6 +107,8 @@ def train(model, opt, curr_epoch, train_dataloader, val_loader, path, k, gnntype
             print(epoch_loss_train)
 
         print('---------------fold-' + str(foldc) + '-------- ecpoch ' + str(epoch) + " ------------------")
+        if halt_counter > halt_pat:
+            break
     return model
 
 def pool(model, data, n):
@@ -126,7 +131,7 @@ def pool_only(path,data, hin, hout, n):
         feats = g.ndata['feat_onehot'].to(device)
         outs, nlclus_list, pcluster_list, pooled_graph_list = pooler(g, feats.detach().float())
 
-def start(dataset_name='MUTAG', dataset = None, dataset_feat='attr', dataset_multiplier=3, dw_dim=32, dw_walk_length= 10, dw_window_size=4, model_dir='', pool=True, epoch=800, hout=128, kfold=False):
+def start(dataset_name='MUTAG', dataset = None, dataset_feat='attr', dataset_multiplier=3, dw_dim=32, dw_walk_length= 10, dw_window_size=4, model_dir='', pool=True, epoch=800, hout=128, kfold=False,halt_pat=50):
     feat_key = dataset_feat
 
     ##not used
@@ -191,7 +196,7 @@ def start(dataset_name='MUTAG', dataset = None, dataset_feat='attr', dataset_mul
         for gnntype in ['graph_conv', 'gin_conv', 'gat_conv', 'tag_conv']:
             model = pre_embedding(indim,hout, len(labels), gnntype).float().to(device) #todo
             opt = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
-            model = train(model, opt, 0, train_dataloader, val_dataloader, model_dir, k, gnntype, dataset_name, epoch)
+            model = train(model, opt, 0, train_dataloader, val_dataloader, model_dir, k, gnntype, dataset_name, epoch, halt_pat)
 
             if pool:
                 pool(model, train_data, len(labels))
