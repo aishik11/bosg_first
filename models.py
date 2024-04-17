@@ -89,7 +89,7 @@ class pre_embedding(nn.Module):
            h = self.initial_emb2(graph, h)
            h = h.flatten(1)
            h = self.initial_emb3(graph, h)
-           outs = h.mean(1)
+           h = h.mean(1)
 
 
         else:
@@ -100,9 +100,9 @@ class pre_embedding(nn.Module):
             h = self.dropout(F.relu(self.initial_emb22(graph, h)))
             h = self.dropout(F.relu(self.initial_emb23(graph, h)))
 
-            graph.ndata['new_feat'] = h
+        graph.ndata['new_feat'] = h
             # graphs = dgl.unbatch(graph)
-            outs = dgl.mean_nodes(graph, 'new_feat')
+        outs = dgl.mean_nodes(graph, 'new_feat')
         # print('comb')
         # print(torch.stack(outs))
         scores = self.pred_lin(outs)
