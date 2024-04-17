@@ -47,36 +47,36 @@ class pre_embedding(nn.Module):
 
             self.start_emb = dglnn.GraphConv(in_dim, out_dim, allow_zero_in_degree=True)
         elif gnn_type == 'gin_conv':
-            self.initial_emb1 = GINConv(th.nn.Linear(in_dim, out_dim), 'max')
-            self.initial_emb2 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
-            self.initial_emb3 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb1 = dglnn.GINConv(th.nn.Linear(in_dim, out_dim), 'max')
+            self.initial_emb2 = dglnn.GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb3 = dglnn.GINConv(th.nn.Linear(out_dim, out_dim), 'max')
 
-            self.initial_emb21 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
-            self.initial_emb22 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
-            self.initial_emb23 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb21 = dglnn.GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb22 = dglnn.GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb23 = dglnn.GINConv(th.nn.Linear(out_dim, out_dim), 'max')
 
-            self.initial_emb = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb = dglnn.GINConv(th.nn.Linear(out_dim, out_dim), 'max')
 
         elif gnn_type == 'gat_conv':
-            self.initial_emb1 = GATConv(in_dim, out_dim, num_heads=3)
-            self.initial_emb2 = GATConv(out_dim, out_dim, num_heads=3)
-            self.initial_emb3 = GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb1 = dglnn.GATConv(in_dim, out_dim, num_heads=3)
+            self.initial_emb2 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb3 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
 
-            self.initial_emb21 = GATConv(out_dim, out_dim, num_heads=3)
-            self.initial_emb22 = GATConv(out_dim, out_dim, num_heads=3)
-            self.initial_emb23 = GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb21 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb22 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb23 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
 
-            self.initial_emb = GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb = dglnn.GATConv(out_dim, out_dim, num_heads=3)
         else:
-            self.initial_emb1 = TAGConv(in_dim, out_dim, k=2)
-            self.initial_emb2 = TAGConv(out_dim, out_dim, k=2)
-            self.initial_emb3 = TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb1 = dglnn.TAGConv(in_dim, out_dim, k=2)
+            self.initial_emb2 = dglnn.TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb3 = dglnn.TAGConv(out_dim, out_dim, k=2)
 
-            self.initial_emb21 = TAGConv(out_dim, out_dim, k=2)
-            self.initial_emb22 = TAGConv(out_dim, out_dim, k=2)
-            self.initial_emb23 = TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb21 = dglnn.TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb22 = dglnn.TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb23 = dglnn.TAGConv(out_dim, out_dim, k=2)
 
-            self.initial_emb = TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb = dglnn.TAGConv(out_dim, out_dim, k=2)
 
         self.dropout = nn.Dropout(0.2)
 
