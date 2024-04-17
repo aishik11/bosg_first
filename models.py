@@ -60,7 +60,7 @@ class pre_embedding(nn.Module):
         elif gnn_type == 'gat_conv':
             self.initial_emb1 = dglnn.GATConv(in_dim, out_dim, num_heads=3)
             self.initial_emb2 = dglnn.GATConv(out_dim*3, out_dim, num_heads=3)
-            self.initial_emb3 = dglnn.GATConv(out_dim*3*3, out_dim, num_heads=3)
+            self.initial_emb3 = dglnn.GATConv(out_dim*3, out_dim, num_heads=3)
 
             #self.initial_emb21 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
             #self.initial_emb22 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
