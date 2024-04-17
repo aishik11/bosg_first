@@ -35,7 +35,7 @@ class pre_embedding(nn.Module):
 
         self.transform1 = RemoveSelfLoop()
         self.transform2 = ToSimple()
-
+        self.gnn_type = gnn_type
         if gnn_type == 'graph_conv':
             self.initial_emb1 = dglnn.GraphConv(in_dim, out_dim, allow_zero_in_degree=True)
             self.initial_emb2 = dglnn.GraphConv(out_dim, out_dim, allow_zero_in_degree=True)
@@ -59,14 +59,14 @@ class pre_embedding(nn.Module):
 
         elif gnn_type == 'gat_conv':
             self.initial_emb1 = dglnn.GATConv(in_dim, out_dim, num_heads=3)
-            self.initial_emb2 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
-            self.initial_emb3 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb2 = dglnn.GATConv(out_dim*3, out_dim, num_heads=3)
+            self.initial_emb3 = dglnn.GATConv(out_dim*3*3, out_dim, num_heads=3)
 
-            self.initial_emb21 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
-            self.initial_emb22 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
-            self.initial_emb23 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            #self.initial_emb21 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            #self.initial_emb22 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            #self.initial_emb23 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
 
-            self.initial_emb = dglnn.GATConv(out_dim, out_dim, num_heads=3)
+            #self.initial_emb = dglnn.GATConv(out_dim, out_dim, num_heads=3)
         else:
             self.initial_emb1 = dglnn.TAGConv(in_dim, out_dim, k=2)
             self.initial_emb2 = dglnn.TAGConv(out_dim, out_dim, k=2)
@@ -83,16 +83,26 @@ class pre_embedding(nn.Module):
     def forward(self, graph, hx, eweight=None):
         scores = []
         node_sums = []
-        h = self.dropout(F.relu(self.initial_emb1(graph, hx)))
-        h = self.dropout(F.relu(self.initial_emb2(graph, h)))
-        h = self.dropout(F.relu(self.initial_emb3(graph, h)))
-        h = self.dropout(F.relu(self.initial_emb21(graph, h)))
-        h = self.dropout(F.relu(self.initial_emb22(graph, h)))
-        h = self.dropout(F.relu(self.initial_emb23(graph, h)))
+        if self.gnn_type == 'gat_conv':
+           h =  self.initial_emb1(graph, hx)
+           h = h.flatten(1)
+           h = self.initial_emb2(graph, h)
+           h = h.flatten(1)
+           h = self.initial_emb3(graph, h)
+           outs = h.mean(1)
 
-        graph.ndata['new_feat'] = h
-        # graphs = dgl.unbatch(graph)
-        outs = dgl.mean_nodes(graph, 'new_feat')
+
+        else:
+            h = self.dropout(F.relu(self.initial_emb1(graph, hx)))
+            h = self.dropout(F.relu(self.initial_emb2(graph, h)))
+            h = self.dropout(F.relu(self.initial_emb3(graph, h)))
+            h = self.dropout(F.relu(self.initial_emb21(graph, h)))
+            h = self.dropout(F.relu(self.initial_emb22(graph, h)))
+            h = self.dropout(F.relu(self.initial_emb23(graph, h)))
+
+            graph.ndata['new_feat'] = h
+            # graphs = dgl.unbatch(graph)
+            outs = dgl.mean_nodes(graph, 'new_feat')
         # print('comb')
         # print(torch.stack(outs))
         scores = self.pred_lin(outs)
