@@ -55,7 +55,7 @@ class pre_embedding(nn.Module):
             self.initial_emb22 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
             self.initial_emb23 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
 
-            self.initial_emb1 = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
+            self.initial_emb = GINConv(th.nn.Linear(out_dim, out_dim), 'max')
 
         elif gnn_type == 'gat_conv':
             self.initial_emb1 = GATConv(in_dim, out_dim, num_heads=3)
@@ -66,7 +66,7 @@ class pre_embedding(nn.Module):
             self.initial_emb22 = GATConv(out_dim, out_dim, num_heads=3)
             self.initial_emb23 = GATConv(out_dim, out_dim, num_heads=3)
 
-            self.initial_emb1 = GATConv(out_dim, out_dim, num_heads=3)
+            self.initial_emb = GATConv(out_dim, out_dim, num_heads=3)
         else:
             self.initial_emb1 = TAGConv(in_dim, out_dim, k=2)
             self.initial_emb2 = TAGConv(out_dim, out_dim, k=2)
@@ -76,7 +76,7 @@ class pre_embedding(nn.Module):
             self.initial_emb22 = TAGConv(out_dim, out_dim, k=2)
             self.initial_emb23 = TAGConv(out_dim, out_dim, k=2)
 
-            self.initial_emb1 = TAGConv(out_dim, out_dim, k=2)
+            self.initial_emb = TAGConv(out_dim, out_dim, k=2)
 
         self.dropout = nn.Dropout(0.2)
 
