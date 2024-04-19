@@ -58,9 +58,9 @@ class pre_embedding(nn.Module):
             self.initial_emb = dglnn.GINConv(th.nn.Linear(out_dim, out_dim), 'max')
 
         elif gnn_type == 'gat_conv':
-            self.initial_emb1 = dglnn.GATConv(in_dim, out_dim, num_heads=3)
-            self.initial_emb2 = dglnn.GATConv(out_dim*3, out_dim, num_heads=3)
-            self.initial_emb3 = dglnn.GATConv(out_dim*3, out_dim, num_heads=3)
+            self.initial_emb1 = dglnn.GATConv(in_dim, out_dim, num_heads=3, allow_zero_in_degree=True)
+            self.initial_emb2 = dglnn.GATConv(out_dim*3, out_dim, num_heads=3, allow_zero_in_degree=True)
+            self.initial_emb3 = dglnn.GATConv(out_dim*3, out_dim, num_heads=3, allow_zero_in_degree=True)
 
             #self.initial_emb21 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
             #self.initial_emb22 = dglnn.GATConv(out_dim, out_dim, num_heads=3)
@@ -80,7 +80,12 @@ class pre_embedding(nn.Module):
 
         self.dropout = nn.Dropout(0.2)
 
-    def forward(self, graph, hx, eweight=None):
+    def forward(self, graph, feat = None, eweight=None):
+
+        if feat == None:
+            print('feat is null')
+            return None
+        hx = feat
         scores = []
         node_sums = []
         if self.gnn_type == 'gat_conv':
