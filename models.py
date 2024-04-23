@@ -246,9 +246,11 @@ class edgepooling_training(nn.Module):
             hdest = edest * torch.log(1 / (edest)) + multiplier  # + (0.1/(pool_it+1))
             hcomb = ecomb_sig * torch.log(1 / ecomb_sig) - eps  # - (1/(pool_it+1))
 
-
+            scores = (hstc - hcomb) * (hdest - hcomb)
+            '''
             scores = ((hstc - hcomb) * (hdest - hcomb) * (1 + torch.floor((hstc - hcomb))) * (
                         1 + torch.floor((hdest - hcomb))))
+            '''
             top_scores = top_scores + scores.tolist()
 
         top_scores = torch.tensor(top_scores)
@@ -329,7 +331,8 @@ class edgepooling_training(nn.Module):
 
         evotes = []
         for i in torch.softmax(e_sigmoids, dim=-1):
-            evotes.append(i[i.max(dim=-1)[1].item()])
+            #evotes.append(i[i.max(dim=-1)[1].item()])
+            evotes.append((i[0] - i[1]) * (i[0] - i[1]))
 
         evotes = torch.tensor(evotes).to(device)
         # evotes = evotes*torch.log(1/evotes)
