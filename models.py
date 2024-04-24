@@ -151,7 +151,7 @@ class edgepooling_training(nn.Module):
             else:
                 eid = torch.stack(g.edges())
                 feat = g.ndata['feat_onehot']
-                e_sigmoids = self.model(feat, eid)
+                e_sigmoids = self.model(feat, eid, None)
             return e_sigmoids[0]
 
     def forward_single_node(self, graph, h, node_id, kh):
