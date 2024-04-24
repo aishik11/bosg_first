@@ -123,11 +123,12 @@ class pre_embedding(nn.Module):
 
 class edgepooling_training(nn.Module):
 
-    def __init__(self, model, eps_in, n_class):
+    def __init__(self, model, eps_in, n_class, is_dgl_model=True):
         super(edgepooling_training, self).__init__()
 
         # self.transform = RemoveSelfLoop()
         self.transform1 = RemoveSelfLoop()
+        self.is_dgl_model = is_dgl_model
         self.transform2 = ToSimple()
 
         self.dropout = nn.Dropout(0.2)
@@ -143,9 +144,14 @@ class edgepooling_training(nn.Module):
         else:
             x = [i for i in range(len(node_index_sum)) if node_index_sum[i] == 1]
             g = dgl.node_subgraph(bgraph, x)
-            batch = dgl.batch([g])
-            e_sigmoids = self.model(batch, batch.ndata['feat_onehot'])
-            score_map[key] = e_sigmoids[0]
+            if self.is_dgl_model:
+                batch = dgl.batch([g])
+                e_sigmoids = self.model(batch, batch.ndata['feat_onehot'])
+                score_map[key] = e_sigmoids[0]
+            else:
+                eid = torch.stack(g.edges())
+                feat = g.ndata['feat_onehot']
+                e_sigmoids = self.model(feat, eid)
             return e_sigmoids[0]
 
     def forward_single_node(self, graph, h, node_id, kh):
