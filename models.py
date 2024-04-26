@@ -249,11 +249,11 @@ class edgepooling_training(nn.Module):
 
             eps = self.eps_in/(pool_it + 1)#len(node_count)#0.001 / node_count
             multiplier = (self.eps_in)/(pool_it + 1)#len(node_count)
-            hstc = esrc * torch.log(1 / (esrc)) + multiplier  # + (0.1/(pool_it+1))
-            hdest = edest * torch.log(1 / (edest)) + multiplier  # + (0.1/(pool_it+1))
-            hcomb = ecomb_sig * torch.log(1 / ecomb_sig) - eps  # - (1/(pool_it+1))
+            hstc = esrc * torch.log(1 / (esrc)) * (1+multiplier)   # + (0.1/(pool_it+1))
+            hdest = edest * torch.log(1 / (edest)) * (1+multiplier)  # + (0.1/(pool_it+1))
+            hcomb = ecomb_sig * torch.log(1 / ecomb_sig) * (1-multiplier)   # - (1/(pool_it+1))
 
-            scores = (hstc - hcomb) * (hdest - hcomb)
+            scores = (2+(hstc - hcomb)) * (2+(hdest - hcomb))
             '''
             scores = ((hstc - hcomb) * (hdest - hcomb) * (1 + torch.floor((hstc - hcomb))) * (
                         1 + torch.floor((hdest - hcomb))))
