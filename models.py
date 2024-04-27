@@ -123,7 +123,7 @@ class pre_embedding(nn.Module):
 
 class edgepooling_training(nn.Module):
 
-    def __init__(self, model, eps_in, n_class, is_dgl_model=True):
+    def __init__(self, model, eps_in, n_class, merge_p = 0.01, split_q = 0.01, mult_fac = 1, is_dgl_model=True):
         super(edgepooling_training, self).__init__()
 
         # self.transform = RemoveSelfLoop()
@@ -135,12 +135,32 @@ class edgepooling_training(nn.Module):
         self.n_class = n_class
         self.model = model
         self.eps_in = eps_in
+        self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+        self.merge_p = merge_p
+        self.split_q = split_q
+        self.mult_fac = mult_fac
+    def _get_activation_output(self, layer: nn.Module, x: torch.Tensor,
+                        edge_index: torch.Tensor):
+        """
+        Get the activation of the layer.
+        """
+        activation = {}
+        def get_activation():
+            def hook(model, inp, out):
+                activation['layer'] = out.detach()
+            return hook
 
+        layer.register_forward_hook(get_activation())
+
+        with torch.no_grad():
+            output = self.model(x, edge_index)
+
+        return activation['layer'], output
     def get_score(self, bgraph, node_index_sum, score_map):
         key = str(node_index_sum.tolist())
 
         if key in score_map.keys():
-            return score_map[key]
+            return score_map[key][0]
         else:
             x = [i for i in range(len(node_index_sum)) if node_index_sum[i] == 1]
             g = dgl.node_subgraph(bgraph, x)
@@ -148,12 +168,14 @@ class edgepooling_training(nn.Module):
                 batch = dgl.batch([g])
                 e_sigmoids = self.model(batch, batch.ndata['feat_onehot'])
                 score_map[key] = e_sigmoids[0]
+                #TODO:implement return activations
             else:
                 eid = torch.stack(g.edges())
                 feat = g.ndata['feat_onehot']
-                e_sigmoids = self.model(feat, eid, None)
-                score_map[key] = e_sigmoids[0]
-            return score_map[key]
+                act, e_sigmoids = self._get_activation_output(list(self.model.modules())[-2], feat, eid)
+                #e_sigmoids = self.model(feat, eid)
+                score_map[key] = (e_sigmoids[0], torch.mean(act, 0).unsqueeze(0))
+            return score_map[key][0]
 
     def forward_single_node(self, graph, h, node_id, kh):
         graph = dgl.khop_in_subgraph(graph, node_id, k=kh)[0]
@@ -204,61 +226,64 @@ class edgepooling_training(nn.Module):
 
     def pooling(self, bgraph, graph, nodefeat, prev_node_lvl_cluster, num_class, pool_it, score_map):
 
-        edge_cross_class = list(range(len(graph.edges()[0]))) * num_class
+        edge_cross_class = list(range(len(graph.edges()[0])))
         edges = graph.edges()
 
         top_scores = []
-        for x in range(num_class):
-            e_sigmoids = []
-            node_index_sum = graph.ndata['node_index']
-            for ni in node_index_sum:
-                e_sigmoids.append(self.get_score(bgraph, ni, score_map))
+        e_sigmoids = []
+        node_index_sum = graph.ndata['node_index']
+        for ni in node_index_sum:
+            e_sigmoids.append(self.get_score(bgraph, ni, score_map))
 
-            e_sigmoids = torch.stack(e_sigmoids).squeeze(-1)
+        e_sigmoids = torch.stack(e_sigmoids).squeeze(-1)
 
-            enodes = []
-            evotes = torch.softmax(e_sigmoids, dim=-1).max(dim=-1)[1]
-            # print(graph)
-            for i in torch.softmax(e_sigmoids, dim=-1):
-                enodes.append(i[x])
-            enodes = torch.stack(enodes)
+        enodes = []
+        evotes = torch.softmax(e_sigmoids, dim=-1).max(dim=-1)[1]
+        # print(graph)
+        for i in torch.softmax(e_sigmoids, dim=-1):
+            enodes.append(i)
+        enodes = torch.stack(enodes)
 
-            # print(enodes)
-            esrc = enodes[edges[0]]
-            edest = enodes[edges[1]]
+        # print(enodes)
+        esrc = torch.transpose(enodes[edges[0]],0,1)
+        edest = torch.transpose(enodes[edges[1]],0,1)
 
-            node_index_sum = graph.ndata['node_index'][graph.edges()[0]] + graph.ndata['node_index'][graph.edges()[1]]
-            sub_gs = []
+        node_index_sum = graph.ndata['node_index'][graph.edges()[0]] + graph.ndata['node_index'][graph.edges()[1]]
+        sub_gs = []
 
-            ecomb_sigmoid = []
+        ecomb_sigmoid = []
 
-            node_count = []
-            for ni in node_index_sum:
-                ecomb_sigmoid.append(self.get_score(bgraph, ni, score_map))
-                node_count.append(torch.sum(ni))
-            node_count = torch.tensor(node_count).to(device)
+        node_count = []
+        for ni in node_index_sum:
+            ecomb_sigmoid.append(self.get_score(bgraph, ni, score_map))
+            node_count.append(torch.sum(ni))
+        node_count = torch.tensor(node_count).to(device)
 
-            ecomb_sigmoid = torch.stack(ecomb_sigmoid).squeeze(-1)
+        ecomb_sigmoid = torch.stack(ecomb_sigmoid).squeeze(-1)
 
-            ecomb = []
-            for i in torch.softmax(ecomb_sigmoid, dim=-1):
-                ecomb.append(i[x])
+        ecomb = []
+        for i in torch.softmax(ecomb_sigmoid, dim=-1):
+            ecomb.append(i)
 
-            ecomb = torch.stack(ecomb)
-            ecomb_sig = ecomb  # torch.sigmoid(ecomb)
+        ecomb = torch.transpose(torch.stack(ecomb),0,1)
+        #ecomb_sig = ecomb  # torch.sigmoid(ecomb)
 
-            eps = self.eps_in/(pool_it + 1)#len(node_count)#0.001 / node_count
-            multiplier = (self.eps_in)/(pool_it + 1)#len(node_count)
-            hstc = esrc * torch.log(1 / (esrc)) * (1+multiplier)   # + (0.1/(pool_it+1))
-            hdest = edest * torch.log(1 / (edest)) * (1+multiplier)  # + (0.1/(pool_it+1))
-            hcomb = ecomb_sig * torch.log(1 / ecomb_sig) * (1-multiplier)   # - (1/(pool_it+1))
+        eps = self.eps_in / (pool_it + 1)  # len(node_count)#0.001 / node_count
+        multiplier = (self.eps_in) / (pool_it + 1)  # len(node_count)
+        hstc = (esrc[0] * torch.log(1 / (esrc[0])) + esrc[1] * torch.log(1 / (esrc[1]))) * (1 + (self.split_q/(1+self.mult_fac*pool_it)))  # + (0.1/(pool_it+1))
+        hdest = (edest[0] * torch.log(1 / (edest[0])) + edest[1] * torch.log(1 / (edest[1]))) * (1 + (self.split_q/(1+self.mult_fac*pool_it)))   # + (0.1/(pool_it+1))
+        hcomb = (ecomb[0] * torch.log(1 / ecomb[0]) + ecomb[1] * torch.log(1 / ecomb[1])) * (1 + (self.merge_p/(1+self.mult_fac*pool_it)))   # - (1/(pool_it+1))
 
-            scores = (2+(hstc - hcomb)) * (2+(hdest - hcomb))
-            '''
-            scores = ((hstc - hcomb) * (hdest - hcomb) * (1 + torch.floor((hstc - hcomb))) * (
-                        1 + torch.floor((hdest - hcomb))))
-            '''
-            top_scores = top_scores + scores.tolist()
+        # scores = (2+(hstc - hcomb)) * (2+(hdest - hcomb))
+
+        scores = (2 + (hstc - hcomb)) * (2 + (hdest - hcomb)) #* ((1 + torch.floor((hstc - hcomb))) + (1 + torch.floor((hdest - hcomb))))
+
+        print(scores)
+        '''
+        scores = ((hstc - hcomb) * (hdest - hcomb) * (1 + torch.floor((hstc - hcomb))) * (
+                    1 + torch.floor((hdest - hcomb))))
+        '''
+        top_scores = top_scores + scores.tolist()
 
         top_scores = torch.tensor(top_scores)
         perm = torch.argsort(top_scores.squeeze(), descending=True).tolist()
@@ -339,10 +364,22 @@ class edgepooling_training(nn.Module):
         evotes = []
         for i in torch.softmax(e_sigmoids, dim=-1):
             #evotes.append(i[i.max(dim=-1)[1].item()])
-            evotes.append((i[0] - i[1]) * (i[0] - i[1]))
+            #evotes.append((i[0] - i[1]) * (i[0] - i[1]))
+            ent = (i[0] * torch.log(1 / (i[0])) + i[1] * torch.log(1 / (i[1])))
+            evotes.append(ent)
 
+        '''
+        evotes = []
+
+        self.get_score(graph, torch.ones(node_index_sum[-1].size()), score_map)
+        v2 = score_map[str(torch.ones(node_index_sum[-1].size()).tolist())][1]
+        for ni in node_index_sum:
+            v1 = score_map[str(ni.tolist())][1]
+            evotes.append(self.cos(v1,v2))
         evotes = torch.tensor(evotes).to(device)
         # evotes = evotes*torch.log(1/evotes)
+        '''
+        evotes = torch.tensor(evotes).to(device)
         new_g.ndata['evotes'] = evotes
 
 
